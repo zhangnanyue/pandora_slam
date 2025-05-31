@@ -1,0 +1,30 @@
+%YAML:1.0
+
+# Camera parameters
+camera_fps: 30
+camera_resolution: [1920, 1080]
+camera_matrix:
+  - [1000.0, 0.0, 640.0]
+  - [0.0, 1000.0, 360.0]
+  - [0.0, 0.0, 1.0]
+
+# IMU parameters
+imu_bias_accel: [0.01, 0.01, 0.01]
+imu_bias_gyro: [0.001, 0.001, 0.001]
+imu_update_rate: 200
+
+# Feature detector
+use_feature_detector: true
+detector_threshold: 10
+
+# Matrix4d parameter
+# transform_matrix:
+#   - [1.0, 0.0, 0.0, 0.0]
+#   - [0.0, 1.0, 0.0, 0.0]
+#   - [0.0, 0.0, 1.0, 0.0]
+#   - [0.0, 0.0, 0.0, 1.0]
+
+transform_matrix: [[1.0, 0.0, 0.0, 0.0], [0.0, 1.0, 0.0, 0.0], [0.0, 0.0, 1.0, 0.0], [0.0, 0.0, 0.0, 1.0]]
+
+# Test boolean as string
+feature_enabled: "True"

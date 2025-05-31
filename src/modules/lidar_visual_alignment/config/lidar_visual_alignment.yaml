@@ -1,0 +1,41 @@
+%YAML:1.0
+
+camera:
+  camera_model: pinhole
+  distortion_model: radtan   # radtan or equidistant
+  resolution: [1920, 1080] # width, height
+  intrinsics:
+    - [1364.45, 0.0, 958.327]
+    - [0.0, 1366.46, 535.074]
+    - [0.0, 0.0, 1.0]
+  # k1, k2, p1, p2, k3
+  distortion_coeffs:
+    [0.0958277, -0.198233, -0.000147133, -0.000430056, 0.000000]
+  T_cam_lidar:
+    - [0.0,   -1.0,   0.0,    0.0]
+    - [0.0,  0.0,  -1.0,    0.0]
+    - [1.0,   0.0,    0.0,    0.0]
+    - [0.0,   0.0,    0.0,    1.0]
+  downsample_factor: 3
+
+gaussian_blur_ksize: 3 # canny 边缘检测的高斯模糊核大小
+canny_threshold: 30 # canny 边缘检测的阈值
+edge_line_contour_min_length_threshold: 50 # 边缘长度的阈值，countour点集数量下限，用于过滤较小的轮廓
+voxel_size: 1.0 # 体素大小
+
+plane_ransac_distance_threshold: 0.015 # RANSAC平面拟合的距离阈值
+plane_point_size_threshold: 30 # 平面内点的数量阈值，用于过滤不完整的平面
+plane_max_size_threshold: 8 # 该voxel内，计算平面交线的最大平面数量
+plane_min_size_threshold: 2 # 该voxel内，计算平面交线的最小平面数量
+plane_connection_min_angle_threshold: 30 # 计算平面交线的两平面最小夹角阈值
+plane_connection_max_angle_threshold: 150 # 计算平面交线的两平面最大夹角阈值
+point_to_plane_min_distance_threshold: 0.03 # 平面交线上的点到平面的最小距离阈值（KDTree搜索）
+point_to_plane_max_distance_threshold: 0.06 # 平面交线上的点到平面的最大距离阈值（KDTree搜索）
+
+colored_point_cloud_dense_threshold: 1 # 输出彩色点云的密度。或者说每隔多少step挑选一个原始点云
+colored_point_cloud_min_intensity_threshold: 10 # 彩色点云的最小强度阈值
+colored_point_cloud_min_depth_threshold: 2.0 # 彩色点云的最小距离阈值 
+colored_point_cloud_max_depth_threshold: 100.0 # 彩色点云的最大距离阈值
+
+common:
+  debug_result_path: "/home/zny/projects/pandora_slam/debug/lidar_visual_alignment_app_1/"

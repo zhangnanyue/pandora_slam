@@ -1,0 +1,32 @@
+%YAML:1.0
+
+# Basic Types
+max_iterations: 100
+threshold: 0.05
+pi_value: 3.14159
+greeting: "Hello, World!"
+
+# Boolean Values
+is_enabled: true
+is_visible: "False"
+use_cache: 1
+debug_mode: "0"
+invalid_bool_test: "not_a_bool"
+
+# Eigen Matrices
+rotation_matrix:
+  - [1.0, 0.0, 0.0]
+  - [0.0, 1.0, 0.0]
+  - [0.0, 0.0, 1.0]
+
+# transformation_matrix:
+#   - [1.0, 0.0, 0.0, 10.0]
+#   - [0.0, 1.0, 0.0, 20.0]
+#   - [0.0, 0.0, 1.0, 30.0]
+#   - [0.0, 0.0, 0.0, 1.0]
+
+transformation_matrix: [[1.0, 0.0, 0.0, 0.0], [0.0, 1.0, 0.0, 0.0], [0.0, 0.0, 1.0, 0.0], [0.0, 0.0, 0.0, 1.0]]
+
+# Optional Parameter
+optional_param: "This parameter is optional"
+
