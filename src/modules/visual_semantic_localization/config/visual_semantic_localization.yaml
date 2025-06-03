@@ -24,8 +24,42 @@ output:
   result_path: "/home/zny/projects/pandora_slam/results/visual_semantic_localization"      # 结果输出目录
   log_path: "/home/zny/projects/pandora_slam/logs/visual_semantic_localization"            # 日志目录
 
-common:
+# IMU 参数配置
+imu:
+  freq: 0.01
+  gravity: 9.8012
+  sensor_noise_std:
+    acc_noise_std_x: 9.8e-3
+    acc_noise_std_y: 9.8e-3
+    acc_noise_std_z: 9.8e-3
+    gyro_noise_std_x: 1.9e-4
+    gyro_noise_std_y: 1.9e-4
+    gyro_noise_std_z: 4.8481e-5
+  bias_random_walk_std:
+    acc_bias_std_x: 6.6667e-7
+    acc_bias_std_y: 6.6667e-7
+    acc_bias_std_z: 6.6667e-7
+    gyro_bias_std_x: 1.0167e-7
+    gyro_bias_std_y: 1.0167e-7
+    gyro_bias_std_z: 1.0167e-8
+  initial_std:
+    pos_init_std: 1e-2
+    vel_init_std: 1e-3
+    rot_init_std: 1e-2
+    gyro_bias_init_std: 1e-4
+    acc_bias_init_std: 1e-4
+    gravity_init_std: 1e-3
+
+# 图像处理参数配置
+image:
+  is_need_distortion: false
+  is_need_downsample: true
   downsample_factor: 3
+  # test_ekf_noise_trans: 100
+  # test_ekf_noise_ang: 100
+  # voxel_size: 0.5
+  # image_point_cov: 100
+  # state_init_cov: 1e2
 
 # # 其他可选参数（如有需要可继续扩展）
 # cache:

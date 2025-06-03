@@ -8,6 +8,7 @@ add_subdirectory(modules/common_utils)
 add_subdirectory(modules/lidar_visual_alignment)
 add_subdirectory(modules/visual_semantic_localization)
 add_subdirectory(modules/data_loader)
+add_subdirectory(modules/ESKF)
 add_subdirectory(examples/common_uitls_example)
 
 # # 指定安装路径

@@ -27,6 +27,8 @@ set(PUBLIC_HEADERS
     print.h
     so3_utils.h
     utils.h
+    common_data_types.h
+    so3_math.h
 )
 
 set_target_properties(common_utils PROPERTIES

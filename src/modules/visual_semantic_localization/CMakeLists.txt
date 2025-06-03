@@ -14,7 +14,7 @@ find_package(yaml-cpp REQUIRED)
 
 add_library(visual_semantic_localization SHARED
     visual_semantic_localization_app.cc
-    visual_semantic_localization.cc
+    visual_semantic_localization_core.cc
 )
 
 target_include_directories(visual_semantic_localization PUBLIC
@@ -26,6 +26,7 @@ target_link_libraries(visual_semantic_localization PUBLIC
     camera_model
     common_utils
     data_loader
+    eskf
     ${CERES_LIBRARIES}
     ${PCL_LIBRARIES}
     ${OpenCV_LIBS}
@@ -34,10 +35,10 @@ target_link_libraries(visual_semantic_localization PUBLIC
     )
 
 set(PUBLIC_HEADERS
-    visual_semantic_localization_app.h
-    visual_semantic_localization.h
-    visual_semantic_localization_options.h
     data_types.h
+    visual_semantic_localization_app.h
+    visual_semantic_localization_core.h
+    visual_semantic_localization_options.h
 )
 
 set_target_properties(visual_semantic_localization PROPERTIES

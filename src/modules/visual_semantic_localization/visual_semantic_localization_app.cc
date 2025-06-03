@@ -9,11 +9,13 @@
 
 #include "common_utils/opencv_yaml_parse.h"
 #include "common_utils/print.h"
-#include "visual_semantic_localization.h"
 #include "visual_semantic_localization_options.h"
 
-bool VisualSemanticLocalizationApp::Initialize(const std::string &config_yaml_file) {
+bool VisualSemanticLocalizationApp::Initialize(const VisualSemanticLocalizationOptions& options) {
     PRINT_INFO("====== Visual Semantic Localization App Initialization Started ======\n");
+
+    // Store configuration
+    options_ = options;
 
     // Initialize data loader
     data_loader_ = std::make_shared<DataLoaderApp>();
@@ -23,9 +25,17 @@ bool VisualSemanticLocalizationApp::Initialize(const std::string &config_yaml_fi
     }
     PRINT_INFO("Data loader initialized successfully\n");
 
-    // Load configuration parameters
-    options_.LoadSensorParamsAndPrint(config_yaml_file);
-    options_.LoadDataAndPrint(config_yaml_file);
+    // Initialize visual semantic localization core
+    visual_semantic_localization_core_ = std::make_shared<VisualSemanticLocalizationCore>();
+    if (!visual_semantic_localization_core_) {
+        PRINT_ERROR("Failed to initialize visual semantic localization core\n");
+        return false;
+    }
+    if (!visual_semantic_localization_core_->Initialize(options_)) {
+        PRINT_ERROR("Failed to initialize visual semantic localization core with configuration\n");
+        return false;
+    }
+    PRINT_INFO("Visual semantic localization core initialized successfully\n");
 
     // Load all data
     if (!LoadAllData()) {
@@ -51,19 +61,20 @@ void VisualSemanticLocalizationApp::Run() {
     // Process data groups
     // 这里的所有数据都以semantic_contours_map_的时间戳为主,以semantic_contours_map_的时间戳为基准,
     // 只处理semantic_contours_map_中存在的时间戳
-    for (const auto &[timestamp, contours_data] : semantic_contours_map_) {
-        // Pack data group
-        DataGroup data_group;
-        PackDataGroup(timestamp, data_group);
-        // if (PackDataGroup(timestamp, data_group)) {
-        //     // Add complete data group to queue
-        //     {
-        //         std::lock_guard<std::mutex> lock(queue_mutex_);
-        //         data_group_queue_.push(data_group);
-        //     }
-        //     queue_cv_.notify_one();
-        // }
-    }
+    // for (const auto &[timestamp, contours_data] : semantic_contours_map_) {
+    //     // Pack data group
+    //     DataGroup data_group;
+    //     PackDataGroup(timestamp, data_group);
+    //     visual_semantic_localization_core_->Run(data_group);
+    //     // if (PackDataGroup(timestamp, data_group)) {
+    //     //     // Add complete data group to queue
+    //     //     {
+    //     //         std::lock_guard<std::mutex> lock(queue_mutex_);
+    //     //         data_group_queue_.push(data_group);
+    //     //     }
+    //     //     queue_cv_.notify_one();
+    //     // }
+    // }
 
     // // Process all data groups
     // while (!data_group_queue_.empty()) {
@@ -122,11 +133,11 @@ bool VisualSemanticLocalizationApp::LoadRawImageData() {
     PRINT_INFO("Loading raw image data...\n");
 
     // Load raw images from directory with specific file pattern
-    if (!data_loader_->LoadImagesFromDirectory(options_.raw_image_data_folder_path, raw_image_map_,
+    if (!data_loader_->LoadImagesFromDirectory(options_.data.raw_image_data_folder_path, raw_image_map_,
                                                {".jpg", ".png", ".bmp"},
                                                "^(\\d+\\.\\d+)_.*\\.jpg$")) {
         PRINT_ERROR("Failed to load raw images from directory: %s\n",
-                    options_.raw_image_data_folder_path.c_str());
+                    options_.data.raw_image_data_folder_path.c_str());
         return false;
     }
     // PRINT_INFO("Successfully loaded %zu raw images\n", raw_image_map_.size());
@@ -138,11 +149,11 @@ bool VisualSemanticLocalizationApp::LoadSemanticMaskImageData() {
     PRINT_INFO("Loading semantic mask image data...\n");
 
     // Load semantic mask images from directory with specific file pattern
-    if (!data_loader_->LoadImagesFromDirectory(options_.semantic_data_folder_path,
+    if (!data_loader_->LoadImagesFromDirectory(options_.data.semantic_data_folder_path,
                                                semantic_mask_image_map_, {".jpg", ".png", ".bmp"},
                                                "^(\\d+\\.\\d+)_.*\\.jpg$")) {
         PRINT_ERROR("Failed to load semantic images from directory: %s\n",
-                    options_.semantic_data_folder_path.c_str());
+                    options_.data.semantic_data_folder_path.c_str());
         return false;
     }
     // PRINT_INFO("Successfully loaded %zu semantic images\n", semantic_mask_image_map_.size());
@@ -154,7 +165,7 @@ bool VisualSemanticLocalizationApp::LoadIMUData() {
     PRINT_INFO("Loading IMU data...\n");
 
     // Load and parse IMU data from text file
-    if (!data_loader_->LoadTxtFile(options_.raw_imu_data_file_path, [this](
+    if (!data_loader_->LoadTxtFile(options_.data.raw_imu_data_file_path, [this](
                                                                         const std::string &line) {
             // Skip comment lines and empty lines
             if (line.empty() || line[0] == '#') return true;
@@ -173,7 +184,7 @@ bool VisualSemanticLocalizationApp::LoadIMUData() {
             }
             return false;
         })) {
-        PRINT_ERROR("Failed to load IMU data from: %s\n", options_.raw_imu_data_file_path.c_str());
+        PRINT_ERROR("Failed to load IMU data from: %s\n", options_.data.raw_imu_data_file_path.c_str());
         return false;
     }
     PRINT_INFO("Successfully loaded %zu IMU data points\n", imu_data_map_.size());
@@ -186,7 +197,7 @@ bool VisualSemanticLocalizationApp::LoadGroundTruthData() {
 
     // Load and parse ground truth data from text file
     if (!data_loader_->LoadTxtFile(
-            options_.ground_truth_data_file_path, [this](const std::string &line) {
+            options_.data.ground_truth_data_file_path, [this](const std::string &line) {
                 // Skip comment lines and empty lines
                 if (line.empty() || line[0] == '#') return true;
 
@@ -217,7 +228,7 @@ bool VisualSemanticLocalizationApp::LoadGroundTruthData() {
                 return true;
             })) {
         PRINT_ERROR("Failed to load ground truth data from: %s\n",
-                    options_.ground_truth_data_file_path.c_str());
+                    options_.data.ground_truth_data_file_path.c_str());
         return false;
     }
     PRINT_INFO("Successfully loaded %zu ground truth data points\n", ground_truth_map_.size());
@@ -230,7 +241,7 @@ bool VisualSemanticLocalizationApp::LoadSemanticContoursData() {
 
     // Load and parse semantic contours data from text file
     if (!data_loader_->LoadTxtFile(
-            options_.semantic_contours_file_path, [this](const std::string &line) {
+            options_.data.semantic_contours_file_path, [this](const std::string &line) {
                 // Skip comment lines and empty lines
                 if (line.empty() || line[0] == '#') return true;
 
@@ -278,7 +289,7 @@ bool VisualSemanticLocalizationApp::LoadSemanticContoursData() {
                 return true;
             })) {
         PRINT_ERROR("Failed to load semantic contours from: %s\n",
-                    options_.semantic_contours_file_path.c_str());
+                    options_.data.semantic_contours_file_path.c_str());
         return false;
     }
     PRINT_INFO("Successfully loaded %zu semantic contours data points\n",
