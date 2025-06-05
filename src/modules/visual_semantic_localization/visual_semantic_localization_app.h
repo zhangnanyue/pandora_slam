@@ -37,6 +37,9 @@ class VisualSemanticLocalizationApp {
     std::mutex queue_mutex_;
     std::condition_variable queue_cv_;
 
+    double last_frame_timestamp_ = 0.0;
+    bool is_first_frame_ = true;
+
     // Data loading functions
     bool LoadAllData();
     bool LoadRawImageData();
@@ -44,6 +47,9 @@ class VisualSemanticLocalizationApp {
     bool LoadIMUData();
     bool LoadGroundTruthData();
     bool LoadSemanticContoursData();
+
+    // IMU data processing
+    bool GetIMUData(double start_time, double end_time, DataGroup& data_group);
 
     // Data group processing functions
     bool PackDataGroup(const double& timestamp, DataGroup& data_group);

@@ -5,6 +5,7 @@
 #include <iostream>
 #include <limits>
 #include <vector>
+#include <map>
 
 /**
  * @file math_utils.h
@@ -122,6 +123,57 @@ bool Solve3x3LinearSystem(const Eigen::Matrix<double, 3, 4> &matrix,
   } else {
     return false;
   }
+}
+
+/**
+ * @brief 通用线性插值函数
+ * @tparam T 数据类型
+ * @param start 起始值
+ * @param end 结束值
+ * @param alpha 插值系数 [0,1]
+ * @return 插值结果
+ */
+template <typename T>
+T LinearInterpolate(const T& start, const T& end, double alpha) {
+    return start + alpha * (end - start);
+}
+
+/**
+ * @brief 通用向量插值函数（用于加速度和角速度）
+ * @tparam T 数据类型
+ * @param start 起始向量
+ * @param end 结束向量
+ * @param alpha 插值系数 [0,1]
+ * @return 插值后的向量
+ */
+template <typename T>
+Eigen::Matrix<T, 3, 1> VectorInterpolate(const Eigen::Matrix<T, 3, 1>& start,
+                                        const Eigen::Matrix<T, 3, 1>& end,
+                                        double alpha) {
+    return LinearInterpolate(start, end, alpha);
+}
+
+/**
+ * @brief 通用时间序列插值函数
+ * @tparam T 数据类型
+ * @param time_series 时间序列数据，key为时间戳，value为对应的向量值
+ * @param timestamp 需要插值的时间戳
+ * @return 插值后的向量，如果时间戳超出范围则返回零向量
+ */
+template <typename T>
+Eigen::Matrix<T, 3, 1> InterpolateTimeSeries(
+    const std::map<double, Eigen::Matrix<T, 3, 1>>& time_series,
+    double timestamp) {
+    
+    auto it_next = time_series.upper_bound(timestamp);
+    if (it_next == time_series.end() || it_next == time_series.begin()) {
+        return Eigen::Matrix<T, 3, 1>::Zero();
+    }
+    
+    auto it_prev = std::prev(it_next);
+    double alpha = (timestamp - it_prev->first) / (it_next->first - it_prev->first);
+    
+    return VectorInterpolate(it_prev->second, it_next->second, alpha);
 }
 
 #endif // COMMON_UTILS_MATH_UTILS_H

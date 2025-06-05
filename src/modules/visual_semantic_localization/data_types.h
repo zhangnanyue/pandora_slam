@@ -9,6 +9,8 @@
 #include <memory>
 #include <unordered_map>
 #include <vector>
+#include <map>
+
 
 
 /**
@@ -77,21 +79,12 @@ struct PoseData {
  * @brief 语义轮廓数据结构
  */
 struct SemanticContoursData {
-    std::string record_name;                    ///< 记录名称
-    std::string camera_type;                    ///< 相机类型
     double lidar_timestamp;                     ///< 激光雷达时间戳
     double camera_timestamp;                    ///< 相机时间戳
-    Eigen::Vector3d t_l_in_w;                  ///< 激光雷达在世界坐标系下的平移
-    Eigen::Matrix3d r_l_to_w;                  ///< 激光雷达到世界坐标系的旋转矩阵
     bool is_valid = false;                      ///< 数据是否有效
     std::unordered_map<std::string, std::vector<cv::Point>> category_contour;  ///< 类别轮廓映射
-    std::string image_path;                     ///< 图像路径
-    std::string pcd_path;                       ///< 点云文件路径
     
-    SemanticContoursData() : lidar_timestamp(0.0), camera_timestamp(0.0) {
-        t_l_in_w.setZero();
-        r_l_to_w.setIdentity();
-    }
+    SemanticContoursData() : lidar_timestamp(0.0), camera_timestamp(0.0) {}
 };
 
 /**
@@ -99,13 +92,16 @@ struct SemanticContoursData {
  * 用于存储同步的传感器数据
  */
 struct DataGroup {
-    double timestamp;                    ///< 数据组时间戳
-    std::shared_ptr<cv::Mat> raw_image;                 ///< 原始图像数据
-    std::shared_ptr<cv::Mat> semantic_mask_image;       ///< 语义掩码图像数据
-    std::shared_ptr<IMUData> imu_data;                  ///< IMU数据
-    std::shared_ptr<PoseData> ground_truth;             ///< 真值位姿数据
-    std::shared_ptr<SemanticContoursData> contours;     ///< 语义轮廓数据
-    bool is_complete;                                   ///< 数据是否完整标志
+    double timestamp;                                            ///< 数据组时间戳
+    std::shared_ptr<cv::Mat> raw_image;                          ///< 原始图像数据
+    std::shared_ptr<cv::Mat> semantic_mask_image;                ///< 语义掩码图像数据
+    std::shared_ptr<std::map<double, IMUData>> imu_data;         ///< IMU数据
+    std::shared_ptr<PoseData> ground_truth;                      ///< 真值位姿数据
+    std::shared_ptr<SemanticContoursData> semantic_contours;     ///< 语义轮廓数据
+    bool is_complete;                                            ///< 数据是否完整标志
+    bool is_init_frame = false;                                  ///< 是否是第一帧
+    std::shared_ptr<cv::Mat> raw_image_gray;                     ///< 原始图像灰度图
+
 
     // 构造函数
     DataGroup() : timestamp(0.0),
@@ -113,7 +109,7 @@ struct DataGroup {
                   semantic_mask_image(nullptr),
                   imu_data(nullptr),
                   ground_truth(nullptr),
-                  contours(nullptr),
+                  semantic_contours(nullptr),
                   is_complete(false) {}
 
     // 检查数据组是否有效
@@ -123,7 +119,7 @@ struct DataGroup {
                semantic_mask_image != nullptr && 
                imu_data != nullptr && 
                ground_truth != nullptr && 
-               contours != nullptr;
+               semantic_contours != nullptr;
     }
 };
 

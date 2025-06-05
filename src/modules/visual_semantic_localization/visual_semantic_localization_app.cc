@@ -2,16 +2,19 @@
 
 #include <unistd.h>
 
+#include <Eigen/Dense>
 #include <fstream>
 #include <memory>
+#include <optional>
 #include <sstream>
 #include <unordered_map>
 
+#include "common_utils/math_utils.h"
 #include "common_utils/opencv_yaml_parse.h"
 #include "common_utils/print.h"
 #include "visual_semantic_localization_options.h"
 
-bool VisualSemanticLocalizationApp::Initialize(const VisualSemanticLocalizationOptions& options) {
+bool VisualSemanticLocalizationApp::Initialize(const VisualSemanticLocalizationOptions &options) {
     PRINT_INFO("====== Visual Semantic Localization App Initialization Started ======\n");
 
     // Store configuration
@@ -58,25 +61,39 @@ void VisualSemanticLocalizationApp::Run() {
     PRINT_INFO("  Ground Truth Points: %zu\n", ground_truth_map_.size());
     PRINT_INFO("  Semantic Contours: %zu\n", semantic_contours_map_.size());
 
+    for (const auto &[timestamp, contours_data] : semantic_contours_map_) {
+        DataGroup data_group;
+        if (PackDataGroup(timestamp, data_group)) {
+            if (visual_semantic_localization_core_) {
+                try {
+                    visual_semantic_localization_core_->Run(data_group);
+                } catch (const std::exception &e) {
+                    PRINT_ERROR("Error processing data group: %s\n", e.what());
+                }
+            } else {
+                PRINT_ERROR("Visual semantic localization core not initialized\n");
+            }
+        }
+    }
+
     // Process data groups
-    // 这里的所有数据都以semantic_contours_map_的时间戳为主,以semantic_contours_map_的时间戳为基准,
-    // 只处理semantic_contours_map_中存在的时间戳
+    // Process all data based on semantic contours timestamps
     // for (const auto &[timestamp, contours_data] : semantic_contours_map_) {
     //     // Pack data group
     //     DataGroup data_group;
-    //     PackDataGroup(timestamp, data_group);
-    //     visual_semantic_localization_core_->Run(data_group);
-    //     // if (PackDataGroup(timestamp, data_group)) {
-    //     //     // Add complete data group to queue
-    //     //     {
-    //     //         std::lock_guard<std::mutex> lock(queue_mutex_);
-    //     //         data_group_queue_.push(data_group);
-    //     //     }
-    //     //     queue_cv_.notify_one();
-    //     // }
+    //     if (PackDataGroup(timestamp, data_group)) {
+    //         // Add complete data group to queue
+    //         {
+    //             std::lock_guard<std::mutex> lock(queue_mutex_);
+    //             data_group_queue_.push(data_group);
+    //         }
+    //         queue_cv_.notify_one();
+    //     } else {
+    //         PRINT_WARNING("Failed to pack data group for timestamp: %.6f\n", timestamp);
+    //     }
     // }
 
-    // // Process all data groups
+    // // Process all data groups in the queue
     // while (!data_group_queue_.empty()) {
     //     DataGroup data_group;
     //     {
@@ -85,7 +102,17 @@ void VisualSemanticLocalizationApp::Run() {
     //         data_group = data_group_queue_.front();
     //         data_group_queue_.pop();
     //     }
-    //     // ProcessDataGroup(data_group);
+
+    //     // Process the data group using the core module
+    //     if (visual_semantic_localization_core_) {
+    //         try {
+    //             visual_semantic_localization_core_->Run(data_group);
+    //         } catch (const std::exception& e) {
+    //             PRINT_ERROR("Error processing data group: %s\n", e.what());
+    //         }
+    //     } else {
+    //         PRINT_ERROR("Visual semantic localization core not initialized\n");
+    //     }
     // }
 
     PRINT_INFO("====== Visual Semantic Localization App Running Completed ======\n");
@@ -133,8 +160,8 @@ bool VisualSemanticLocalizationApp::LoadRawImageData() {
     PRINT_INFO("Loading raw image data...\n");
 
     // Load raw images from directory with specific file pattern
-    if (!data_loader_->LoadImagesFromDirectory(options_.data.raw_image_data_folder_path, raw_image_map_,
-                                               {".jpg", ".png", ".bmp"},
+    if (!data_loader_->LoadImagesFromDirectory(options_.data.raw_image_data_folder_path,
+                                               raw_image_map_, {".jpg", ".png", ".bmp"},
                                                "^(\\d+\\.\\d+)_.*\\.jpg$")) {
         PRINT_ERROR("Failed to load raw images from directory: %s\n",
                     options_.data.raw_image_data_folder_path.c_str());
@@ -165,26 +192,28 @@ bool VisualSemanticLocalizationApp::LoadIMUData() {
     PRINT_INFO("Loading IMU data...\n");
 
     // Load and parse IMU data from text file
-    if (!data_loader_->LoadTxtFile(options_.data.raw_imu_data_file_path, [this](
-                                                                        const std::string &line) {
-            // Skip comment lines and empty lines
-            if (line.empty() || line[0] == '#') return true;
+    if (!data_loader_->LoadTxtFile(
+            options_.data.raw_imu_data_file_path, [this](const std::string &line) {
+                // Skip comment lines and empty lines
+                if (line.empty() || line[0] == '#') return true;
 
-            IMUData data;
-            int index;  // Used to store line number but not used
-            // Parse IMU data line, format: index timestamp ax ay az gx gy gz
-            if (sscanf(line.c_str(), "%d %lf %lf %lf %lf %lf %lf %lf", &index, &data.timestamp,
-                       &data.accel.x(), &data.accel.y(), &data.accel.z(), &data.gyro.x(),
-                       &data.gyro.y(), &data.gyro.z()) == 8) {
-                imu_data_map_[data.timestamp] = data;  // Store data using timestamp as key
-                // PRINT_DEBUG("IMU data: timestamp = %f, accel = (%f, %f, %f), gyro = (%f, %f, %f)\n",
-                //             data.timestamp, data.accel.x(), data.accel.y(), data.accel.z(),
-                //             data.gyro.x(), data.gyro.y(), data.gyro.z());
-                return true;
-            }
-            return false;
-        })) {
-        PRINT_ERROR("Failed to load IMU data from: %s\n", options_.data.raw_imu_data_file_path.c_str());
+                IMUData data;
+                int index;  // Used to store line number but not used
+                // Parse IMU data line, format: index timestamp ax ay az gx gy gz
+                if (sscanf(line.c_str(), "%d %lf %lf %lf %lf %lf %lf %lf", &index, &data.timestamp,
+                           &data.accel.x(), &data.accel.y(), &data.accel.z(), &data.gyro.x(),
+                           &data.gyro.y(), &data.gyro.z()) == 8) {
+                    imu_data_map_[data.timestamp] = data;  // Store data using timestamp as key
+                    // PRINT_DEBUG("IMU data: timestamp = %f, accel = (%f, %f, %f), gyro = (%f, %f,
+                    // %f)\n",
+                    //             data.timestamp, data.accel.x(), data.accel.y(), data.accel.z(),
+                    //             data.gyro.x(), data.gyro.y(), data.gyro.z());
+                    return true;
+                }
+                return false;
+            })) {
+        PRINT_ERROR("Failed to load IMU data from: %s\n",
+                    options_.data.raw_imu_data_file_path.c_str());
         return false;
     }
     PRINT_INFO("Successfully loaded %zu IMU data points\n", imu_data_map_.size());
@@ -249,12 +278,12 @@ bool VisualSemanticLocalizationApp::LoadSemanticContoursData() {
                 SemanticContoursData semantic_contours;
                 std::string category;
                 int x, y;
-
+                std::string record_name;
+                std::string camera_type;
                 // Read fixed fields: record_name camera_type lidar_timestamp camera_timestamp
                 // category
-                if (!(iss >> semantic_contours.record_name >> semantic_contours.camera_type >>
-                      semantic_contours.lidar_timestamp >> semantic_contours.camera_timestamp >>
-                      category)) {
+                if (!(iss >> record_name >> camera_type >> semantic_contours.lidar_timestamp >>
+                      semantic_contours.camera_timestamp >> category)) {
                     PRINT_ERROR("Failed to read the fixed fields from line: %s\n", line.c_str());
                     return false;
                 }
@@ -298,25 +327,135 @@ bool VisualSemanticLocalizationApp::LoadSemanticContoursData() {
     return true;
 }
 
+/**
+ * @brief 获取IMU数据，包括时间范围内的数据和指定时间点的插值数据
+ * @param start_time 起始时间
+ * @param end_time 结束时间
+ * @param data_group 数据组，用于存储结果
+ * @return 是否成功获取数据
+ */
+bool VisualSemanticLocalizationApp::GetIMUData(double start_time, double end_time,
+                                               DataGroup &data_group) {
+    if (start_time <= 0) {
+        return false;
+    }
+
+    // 1. 获取时间范围内的IMU数据
+    auto imu_data_map = std::make_shared<std::map<double, IMUData>>();
+    auto it_start = imu_data_map_.upper_bound(start_time);
+    auto it_end = imu_data_map_.lower_bound(end_time);
+
+    if (it_start != imu_data_map_.end() && it_end != imu_data_map_.end()) {
+        for (auto it = it_start; it != it_end; ++it) {
+            (*imu_data_map)[it->first] = it->second;
+        }
+    }
+
+    // 2. 获取并插值两个时间点的IMU数据
+    auto get_or_interpolate = [this](double timestamp) -> std::optional<IMUData> {
+        auto it_exact = imu_data_map_.find(timestamp);
+        if (it_exact != imu_data_map_.end()) {
+            return it_exact->second;
+        }
+        auto it_prev = imu_data_map_.lower_bound(timestamp);
+        auto it_next = imu_data_map_.upper_bound(timestamp);
+        if (it_prev != imu_data_map_.begin() && it_next != imu_data_map_.end()) {
+            --it_prev;
+            double alpha = (timestamp - it_prev->first) / (it_next->first - it_prev->first);
+            IMUData interpolated_data;
+            interpolated_data.accel =
+                VectorInterpolate(it_prev->second.accel, it_next->second.accel, alpha);
+            interpolated_data.gyro =
+                VectorInterpolate(it_prev->second.gyro, it_next->second.gyro, alpha);
+            interpolated_data.timestamp = timestamp;
+            return interpolated_data;
+        }
+        return std::nullopt;
+    };
+
+    auto imu_start = get_or_interpolate(start_time);
+    auto imu_end = get_or_interpolate(end_time);
+
+    if (imu_start && imu_end) {
+        (*imu_data_map)[start_time] = *imu_start;
+        (*imu_data_map)[end_time] = *imu_end;
+        data_group.imu_data = imu_data_map;
+
+        if (imu_data_map->size() <= 10) {
+            PRINT_WARNING(
+                "Found %zu IMU data points between timestamps %.6f and %.6f, which is less than "
+                "10\n",
+                imu_data_map->size(), start_time, end_time);
+        } else {
+            PRINT_INFO("Found %zu IMU data between timestamps %.6f and %.6f\n",
+                       imu_data_map->size(), start_time, end_time);
+        }
+        return true;
+    }
+
+    return false;
+}
+
 bool VisualSemanticLocalizationApp::PackDataGroup(const double &timestamp, DataGroup &data_group) {
     data_group.timestamp = timestamp;
     std::vector<std::string> available_data;
+
+    // 处理第一帧数据
+    if (is_first_frame_) {
+        data_group.is_init_frame = true;
+        is_first_frame_ = false;
+        PRINT_INFO("Processing first frame at timestamp: %.6f\n", timestamp);
+    }
 
     // 检查并获取原始图像
     auto it_raw_image = raw_image_map_.find(timestamp);
     if (it_raw_image != raw_image_map_.end()) {
         data_group.raw_image = std::make_shared<cv::Mat>(it_raw_image->second->GetImage());
-        if (data_group.raw_image) available_data.push_back("raw_image");
+        if (data_group.raw_image && !data_group.raw_image->empty()) {
+            available_data.push_back("raw_image");
+            if (!data_group.is_init_frame && (timestamp - last_frame_timestamp_) > 0.12) {
+                PRINT_WARNING(
+                    "get image timestmap: %.6f, last image timestamp: %.6f\n, warning: "
+                    "image timestamp is not continuous\n",
+                    timestamp, last_frame_timestamp_);
+            } else {
+                PRINT_INFO("get image timestmap: %.6f, last image timestamp: %.6f\n", timestamp,
+                           last_frame_timestamp_);
+            }
+
+            // 确保灰度图像指针已初始化
+            if (!data_group.raw_image_gray) {
+                data_group.raw_image_gray = std::make_shared<cv::Mat>();
+            }
+            cv::cvtColor(*data_group.raw_image, *data_group.raw_image_gray, cv::COLOR_BGR2GRAY);
+        } else {
+            PRINT_ERROR("Failed to get valid raw image at timestamp: %.6f\n", timestamp);
+            return false;
+        }
+    } else {
+        PRINT_ERROR("No raw image found at timestamp: %.6f\n", timestamp);
+        return false;
     }
+
+    // 处理IMU数据
+    if (!data_group.is_init_frame) {
+        GetIMUData(last_frame_timestamp_, timestamp, data_group);
+        if (data_group.imu_data) {
+            available_data.push_back("imu_data");
+        }
+    }
+    last_frame_timestamp_ = timestamp;
 
     // 检查并获取语义掩码图像
     auto it_semantic_mask_image = semantic_mask_image_map_.find(timestamp);
     if (it_semantic_mask_image != semantic_mask_image_map_.end()) {
-        data_group.semantic_mask_image = std::make_shared<cv::Mat>(it_semantic_mask_image->second->GetImage());
+        data_group.semantic_mask_image =
+            std::make_shared<cv::Mat>(it_semantic_mask_image->second->GetImage());
         if (data_group.semantic_mask_image) available_data.push_back("semantic_mask_image");
     }
 
     // 检查并获取地面真值数据
+    // 第一帧数据需要初始化整个系统，所有得确保第一帧数据必须有ground_truth数据
     auto it_ground_truth = ground_truth_map_.find(timestamp);
     if (it_ground_truth != ground_truth_map_.end()) {
         data_group.ground_truth = std::make_shared<PoseData>(it_ground_truth->second);
@@ -326,13 +465,21 @@ bool VisualSemanticLocalizationApp::PackDataGroup(const double &timestamp, DataG
     // 检查并获取语义轮廓数据
     auto it_semantic_contours = semantic_contours_map_.find(timestamp);
     if (it_semantic_contours != semantic_contours_map_.end()) {
-        data_group.contours = std::make_shared<SemanticContoursData>(it_semantic_contours->second);
-        if (data_group.contours) available_data.push_back("semantic_contours");
+        data_group.semantic_contours =
+            std::make_shared<SemanticContoursData>(it_semantic_contours->second);
+        if (data_group.semantic_contours) available_data.push_back("semantic_contours");
     }
 
     // 检查数据完整性
-    data_group.is_complete = (available_data.size() == 4);
-    
+    // 第一帧必须有ground_truth数据
+    // 其他帧，真值数据有时候会少帧，所以不作为数据完整性检查的一部分
+    if (data_group.is_init_frame) {
+        data_group.is_complete = (available_data.size() == 4);
+    } else {
+        data_group.is_complete = (available_data.size() >= 3 && data_group.raw_image &&
+                                  data_group.imu_data && data_group.semantic_contours);
+    }
+
     // 使用标准库构建数据列表字符串
     std::string data_list;
     for (size_t i = 0; i < available_data.size(); ++i) {
@@ -342,10 +489,10 @@ bool VisualSemanticLocalizationApp::PackDataGroup(const double &timestamp, DataG
 
     // 根据数据完整性选择打印级别
     if (data_group.is_complete) {
-        // PRINT_INFO("Data group at timestamp %.3f is complete, available data types: %s\n", timestamp, data_list.c_str());
         PRINT_INFO("Data group at timestamp %.3f is complete\n", timestamp);
     } else {
-        PRINT_WARNING("Data group at timestamp %.3f is incomplete, available data types: %s\n", timestamp, data_list.c_str());
+        PRINT_WARNING("Data group at timestamp %.3f is incomplete, available data types: %s\n",
+                      timestamp, data_list.c_str());
     }
 
     return data_group.is_complete;
