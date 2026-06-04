@@ -38,4 +38,4 @@ colored_point_cloud_min_depth_threshold: 2.0 # 彩色点云的最小距离阈值
 colored_point_cloud_max_depth_threshold: 100.0 # 彩色点云的最大距离阈值
 
 common:
-  debug_result_path: "/home/zny/projects/pandora_slam/debug/lidar_visual_alignment_app_1/"
+  debug_result_path: "<output_root>/debug/lidar_visual_alignment_app/"

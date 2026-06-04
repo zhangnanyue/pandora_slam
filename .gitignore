@@ -60,4 +60,15 @@ install/
 
 .specstory
 
-docs/
+docs/html/
+debug/
+logs/
+results/
+cache/
+models/
+*.tar.gz
+pangolin_viewer/
+compile_commands.json
+*.bak
+*.backup
+docs/usage_guide.md

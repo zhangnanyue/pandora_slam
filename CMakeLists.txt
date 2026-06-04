@@ -10,9 +10,9 @@ set(CMAKE_INSTALL_PREFIX ${CMAKE_SOURCE_DIR}/install) # install
 # set(CMAKE_BUILD_WITH_INSTALL_RPATH TRUE)
 
 add_subdirectory(src)
-add_subdirectory(apps/base_app/data_loader_app)
+# add_subdirectory(apps/base_app/data_loader_app)
 
-add_subdirectory(apps/lidar_visual_alignment_app)
+# add_subdirectory(apps/lidar_visual_alignment_app)
 add_subdirectory(run/visual_semantic_localization)
 
 # add_subdirectory(tests/test_opencv_yaml_parse)

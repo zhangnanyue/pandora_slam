@@ -2,7 +2,7 @@
 
 # 配置文件路径
 config:
-  root_path: "/home/zny/projects/pandora_slam/data/visual_semantic_localization_data/x3p311/params"  # 配置文件根目录
+  root_path: "<dataset_root>/params"  # 配置文件根目录
   camera_intrinsics: "x3p_camera_10_front_right_6_mm_intrinsics.yaml"  # 相机内参
   extrinsics_backlidar_imu: "velodyne16_back_novatel_extrinsics.yaml"  # p_imu = T_imu_backliar * p_backlidar
   extrinsics_camera_backlidar: "x3p_camera_10_front_right_6_mm_to_velodyne16_back_extrinsics.yaml"  # p_backlidar = T_backlidar_camera * p_camera
@@ -10,19 +10,19 @@ config:
 
 # 数据路径
 data:
-  root_path: "/home/zny/projects/pandora_slam/data/visual_semantic_localization_data/x3p311"  # 数据根目录
+  root_path: "<dataset_root>"  # 数据根目录
   raw_image_data_folder: "raw_images"               # 原始图像数据文件夹
   semantic_data_folder: "semantic_images"           # 语义分割图像文件夹
   semantic_contours_file: "semantic_contours.txt"   # 语义轮廓文件
   raw_imu_data_file: "imu_data.txt"                 # 原始IMU数据文件
   ground_truth_data_file: "fast_lio.txt"            # 真值轨迹文件
-  raw_lidar_data_folder: "raw_lidar"                # 原始激光雷达数据文件夹
+  semantic_pointcloud_map_folder: "semantic_map"    # 语义点云地图文件夹
 
 # 输出与调试
 output:
-  debug_output_path: "/home/zny/projects/pandora_slam/debug/visual_semantic_localization"  # 调试输出目录
-  result_path: "/home/zny/projects/pandora_slam/results/visual_semantic_localization"      # 结果输出目录
-  log_path: "/home/zny/projects/pandora_slam/logs/visual_semantic_localization"            # 日志目录
+  debug_output_path: "<output_root>/debug/visual_semantic_localization"  # 调试输出目录
+  result_path: "<output_root>/results/visual_semantic_localization"      # 结果输出目录
+  log_path: "<output_root>/logs/visual_semantic_localization"            # 日志目录
 
 # IMU 参数配置
 imu:
@@ -61,13 +61,17 @@ image:
   # image_point_cov: 100
   # state_init_cov: 1e2
 
+semantic_measurement:
+  search_max_distance: 50 # 在语义地图中的搜索范围
+
+
 # # 其他可选参数（如有需要可继续扩展）
 # cache:
 #   enable: true
-#   cache_path: "/home/zny/projects/pandora_slam/cache/visual_semantic_localization"
+#   cache_path: "<output_root>/cache/visual_semantic_localization"
 
 # model:
-#   semantic_model_path: "/home/zny/projects/pandora_slam/models/semantic_segmentation.pth"
+#   semantic_model_path: "<model_root>/semantic_segmentation.pth"
 #   use_gpu: true
 
 # # 运行参数

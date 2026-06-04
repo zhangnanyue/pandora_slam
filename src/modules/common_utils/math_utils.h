@@ -176,4 +176,24 @@ Eigen::Matrix<T, 3, 1> InterpolateTimeSeries(
     return VectorInterpolate(it_prev->second, it_next->second, alpha);
 }
 
+/**
+ * @brief 计算三维空间中两点之间的欧氏距离
+ *
+ * 该函数使用 std::hypot 计算点 \p a 和点 \p b 之间的三维欧氏距离，
+ * 相较于直接使用 std::sqrt(dx*dx + dy*dy + dz*dz)，
+ * std::hypot 在数值上更加稳定，可减少极端情况下的溢出或下溢风险。
+ *
+ * @param[in] a 第一个三维坐标点，类型为 Eigen::Vector3d
+ * @param[in] b 第二个三维坐标点，类型为 Eigen::Vector3d
+ * @return 两点之间的欧氏距离（double 型）
+ */
+inline double ComputeEuclideanDistance3D(const Eigen::Vector3d &a,
+                                          const Eigen::Vector3d &b) {
+    return std::hypot(b(0) - a(0),
+                      b(1) - a(1),
+                      b(2) - a(2));
+}
+
+
+
 #endif // COMMON_UTILS_MATH_UTILS_H

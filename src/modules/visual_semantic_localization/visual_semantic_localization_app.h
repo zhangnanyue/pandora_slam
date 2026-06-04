@@ -26,11 +26,11 @@ class VisualSemanticLocalizationApp {
     
 
     // Data member variables
-    DataLoaderApp::ImageMap raw_image_map_;                         // Raw image data
-    DataLoaderApp::ImageMap semantic_mask_image_map_;               // Semantic mask image data
-    std::map<double, IMUData> imu_data_map_;                        // IMU data
-    std::map<double, PoseData> ground_truth_map_;                   // Ground truth data
-    std::map<double, SemanticContoursData> semantic_contours_map_;  // Semantic contours data
+    DataLoaderApp::ImageMap raw_image_map_;                                 // Raw image data
+    DataLoaderApp::ImageMap semantic_mask_image_map_;                       // Semantic mask image data
+    std::map<double, IMUData> imu_data_map_;                                // IMU data
+    std::map<double, PoseData> ground_truth_map_;                           // Ground truth data
+    std::map<double, SemanticContoursData> semantic_contours_map_;          // Semantic contours data
 
     // Data group processing
     std::queue<DataGroup> data_group_queue_;

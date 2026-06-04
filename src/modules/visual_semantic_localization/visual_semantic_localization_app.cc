@@ -34,7 +34,7 @@ bool VisualSemanticLocalizationApp::Initialize(const VisualSemanticLocalizationO
         PRINT_ERROR("Failed to initialize visual semantic localization core\n");
         return false;
     }
-    if (!visual_semantic_localization_core_->Initialize(options_)) {
+    if (!visual_semantic_localization_core_->Init(options_)) {
         PRINT_ERROR("Failed to initialize visual semantic localization core with configuration\n");
         return false;
     }
@@ -66,7 +66,7 @@ void VisualSemanticLocalizationApp::Run() {
         if (PackDataGroup(timestamp, data_group)) {
             if (visual_semantic_localization_core_) {
                 try {
-                    visual_semantic_localization_core_->Run(data_group);
+                    visual_semantic_localization_core_->Process(data_group);
                 } catch (const std::exception &e) {
                     PRINT_ERROR("Error processing data group: %s\n", e.what());
                 }
@@ -106,7 +106,7 @@ void VisualSemanticLocalizationApp::Run() {
     //     // Process the data group using the core module
     //     if (visual_semantic_localization_core_) {
     //         try {
-    //             visual_semantic_localization_core_->Run(data_group);
+    //             visual_semantic_localization_core_->Process(data_group);
     //         } catch (const std::exception& e) {
     //             PRINT_ERROR("Error processing data group: %s\n", e.what());
     //         }

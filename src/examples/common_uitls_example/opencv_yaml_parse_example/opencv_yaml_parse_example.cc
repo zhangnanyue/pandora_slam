@@ -7,7 +7,7 @@
 int main() {
   // Path to the YAML configuration file
   std::string config_path =
-      "/home/zny/projects/pandora_slam/install/config/"
+      "<repo>/install/config/"
       "opencv_yaml_parse_example/opencv_yaml_parse_example.yaml";
 
   // Initialize the YamlParser

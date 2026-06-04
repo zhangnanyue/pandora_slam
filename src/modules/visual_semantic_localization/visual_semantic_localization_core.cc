@@ -3,51 +3,28 @@
 #include "common_utils/print.h"
 #include "common_utils/tic_toc.h"
 
+#include <filesystem>
+#include <pcl/io/pcd_io.h>
+
 
 VisualSemanticLocalizationCore::VisualSemanticLocalizationCore() {
-    T_imu_backlidar_ = Eigen::Matrix4d::Identity();
-    r_l_to_i_ = Eigen::Matrix3d::Identity();
-    t_l_to_i_ = Eigen::Vector3d::Zero();
-    T_backlidar_camera_ = Eigen::Matrix4d::Identity();
-    T_backlidar_frontlidar_ = Eigen::Matrix4d::Identity();
-    T_camera_imu_ = Eigen::Matrix4d::Identity();
-    r_i_to_c_ = Eigen::Matrix3d::Identity();
-    t_i_to_c_ = Eigen::Vector3d::Zero();
-    T_backlidar_imu_ = Eigen::Matrix4d::Identity();
-    r_i_to_l_ = Eigen::Matrix3d::Identity();
-    t_i_to_l_ = Eigen::Vector3d::Zero();
     r_l_to_w_gt_ = Eigen::Matrix3d::Identity();
-    t_l_to_w_gt_ = Eigen::Vector3d::Zero();
+    t_l_in_w_gt_ = Eigen::Vector3d::Zero();
     r_i_to_w_gt_ = Eigen::Matrix3d::Identity();
-    t_i_to_w_gt_ = Eigen::Vector3d::Zero();
+    t_i_in_w_gt_ = Eigen::Vector3d::Zero();
 }
 
-bool VisualSemanticLocalizationCore::Initialize(const VisualSemanticLocalizationOptions& options) {
+bool VisualSemanticLocalizationCore::Init(const VisualSemanticLocalizationOptions& options) {
     PRINT_INFO("====== Visual Semantic Localization Core Initialization Started ======\n");
 
     // Store configuration
     options_ = options;
 
-    // 激光雷达到IMU坐标系
-    T_imu_backlidar_ = options_.extrinsics.T_imu_backlidar;
-    r_l_to_i_ = T_imu_backlidar_.block<3, 3>(0, 0);
-    t_l_to_i_ = T_imu_backlidar_.block<3, 1>(0, 3);
-
-    // IMU到激光雷达坐标系
-    T_backlidar_imu_ = T_imu_backlidar_.inverse();
-    r_i_to_l_ = T_backlidar_imu_.block<3, 3>(0, 0);
-    t_i_to_l_ = T_backlidar_imu_.block<3, 1>(0, 3);
-
-    // 相机到激光雷达坐标系
-    T_backlidar_camera_ = options_.extrinsics.T_backlidar_camera;
-
-    // 激光雷达到前激光雷达坐标系
-    T_backlidar_frontlidar_ = options_.extrinsics.T_backlidar_frontlidar;
-
-    // IMU到相机坐标系
-    T_camera_imu_ = T_backlidar_camera_.inverse() * T_imu_backlidar_.inverse();
-    r_i_to_c_ = T_camera_imu_.block<3, 3>(0, 0);
-    t_i_to_c_ = T_camera_imu_.block<3, 1>(0, 3);
+    // load semantic pointcloud map
+    if (!LoadSemanticPointcloudMapData(options_.data.semantic_pointcloud_map_folder_path)){
+        PRINT_ERROR("Faild to load semantic pointcloud map");
+        return false;
+    }
 
     // Initialize ESKF
     PRINT_INFO("====== Initializing ESKF ======\n");
@@ -96,7 +73,7 @@ bool VisualSemanticLocalizationCore::Initialize(const VisualSemanticLocalization
     return true;
 }
 
-void VisualSemanticLocalizationCore::Run(const DataGroup& data_group) {
+void VisualSemanticLocalizationCore::Process(const DataGroup& data_group) {
     double timestamp = data_group.timestamp;
     PRINT_INFO("====== Visual Semantic Localization Core Processing %.6f frame ======\n",
                timestamp);
@@ -104,18 +81,18 @@ void VisualSemanticLocalizationCore::Run(const DataGroup& data_group) {
     // 真值计算
     if (data_group.ground_truth) {
         r_l_to_w_gt_ = data_group.ground_truth->r;
-        t_l_to_w_gt_ = data_group.ground_truth->t;
-        r_i_to_w_gt_ = r_l_to_w_gt_ * r_i_to_l_;
-        t_i_to_w_gt_ = r_l_to_w_gt_ * t_i_to_l_ + t_l_to_w_gt_;
+        t_l_in_w_gt_ = data_group.ground_truth->t;
+        r_i_to_w_gt_ = r_l_to_w_gt_ * options_.extrinsics.r_i_to_l_;
+        t_i_in_w_gt_ = r_l_to_w_gt_ * options_.extrinsics.t_i_in_l_ + t_l_in_w_gt_;
         PRINT_INFO("ground truth pos in imu frame: [%.6f, %.6f, %.6f]\n",
-                   t_i_to_w_gt_(0), t_i_to_w_gt_(1), t_i_to_w_gt_(2));
+                   t_i_in_w_gt_(0), t_i_in_w_gt_(1), t_i_in_w_gt_(2));
     }
 
     // eskf的状态初始化
     // 这里由于提供了真值，没有使用IMU的静态初始化，p和r直接和真值对齐，bg和ba置为0
     if (data_group.is_init_frame && !eskf_initialized_) {
         eskf_->SetInitConditions(timestamp, Vec3d::Zero(), Vec3d::Zero(),
-                                 r_i_to_w_gt_, t_i_to_w_gt_);
+                                 r_i_to_w_gt_, t_i_in_w_gt_);
         eskf_initialized_ = true;
 
         last_frame_timestamp_ = timestamp;
@@ -125,7 +102,6 @@ void VisualSemanticLocalizationCore::Run(const DataGroup& data_group) {
     }
 
     // ESKF Predict
-    // 计算预测时间
     TicToc predict_timer;
     predict_timer.tic();
 
@@ -138,7 +114,9 @@ void VisualSemanticLocalizationCore::Run(const DataGroup& data_group) {
     }
 
     double predict_time = predict_timer.toc();
-    PRINT_INFO("ESKF预测耗时: %.2f ms\n", predict_time); // ESKF prediction time cost
+    PRINT_INFO("%.2f ms for eskf predict \n", predict_time); // ESKF prediction time cost
+
+
 
 
     // if (!initialized_) {
@@ -171,4 +149,29 @@ void VisualSemanticLocalizationCore::Run(const DataGroup& data_group) {
     // if (eskf_) {
     //     eskf_->PrintStates("After processing data group");
     // }
+}
+
+bool VisualSemanticLocalizationCore::LoadSemanticPointcloudMapData(const std::string& dir_path) {
+    PRINT_INFO("Loading semantic map data...\n");
+
+    if (dir_path.empty() || !std::filesystem::exists(dir_path)) {
+        PRINT_ERROR("Semantic map directory does not exist: %s\n", dir_path.c_str());
+        return false;
+    }
+
+    for (const auto &entry :
+         std::filesystem::directory_iterator(dir_path)) {
+        if (entry.is_regular_file() && entry.path().extension() == ".pcd") {
+            PointcloudXYZIPtr cloud(new pcl::PointCloud<pcl::PointXYZI>());
+
+            if (pcl::io::loadPCDFile<pcl::PointXYZI>(entry.path().string(), *cloud) == -1) {
+                PRINT_ERROR("could not read pcd file: %s\n", entry.path().c_str());
+                return false;
+            }
+
+            semantic_pointcloud_map_[entry.path().filename().string()] = cloud;
+        }
+    }
+    PRINT_INFO("Loaded %zu semantic pointcloud map data\n", semantic_pointcloud_map_.size());
+    return true;
 }
