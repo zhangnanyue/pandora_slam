@@ -1,5 +1,9 @@
 # Pandora SLAM
 
+[![CMake Build](https://github.com/zhangnanyue/pandora_slam/actions/workflows/cmake.yml/badge.svg)](https://github.com/zhangnanyue/pandora_slam/actions/workflows/cmake.yml)
+[![Latest Release](https://img.shields.io/github/v/release/zhangnanyue/pandora_slam?include_prereleases)](https://github.com/zhangnanyue/pandora_slam/releases)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
+
 Pandora SLAM is a research-oriented C++ SLAM workspace for studying LiDAR, camera, IMU and semantic-map based localization. The repository is focused on reusable building blocks for multi-sensor geometry rather than a packaged production system.
 
 The current codebase includes:
@@ -19,6 +23,28 @@ The project is useful for researchers or students who want to inspect how a sema
 ## Repository Status
 
 This is an active research prototype. The public repository intentionally does not include private datasets, generated debug outputs, build artifacts, or machine-specific paths. Example configuration files use placeholders such as `<dataset_root>` and `<output_root>`; replace them with local paths before running experiments.
+
+## Pipeline Overview
+
+```mermaid
+flowchart LR
+  Config["YAML config"] --> Options["VisualSemanticLocalizationOptions"]
+  Raw["Raw images"] --> Loader["DataLoader"]
+  Mask["Semantic masks / contours"] --> Loader
+  IMU["IMU samples"] --> Loader
+  Pose["Ground-truth / reference poses"] --> Loader
+  Map["Semantic PCD map"] --> Core["VisualSemanticLocalizationCore"]
+  Options --> App["VisualSemanticLocalizationApp"]
+  Loader --> Group["DataGroup by timestamp"]
+  App --> Group
+  Group --> Core
+  Core --> ESKF["ESKF prediction"]
+  Core --> Semantic["Semantic feature projection"]
+  ESKF --> Output["Localization research outputs"]
+  Semantic --> Output
+```
+
+The pipeline separates configuration, data loading, synchronized frame packaging and core state-estimation logic. This keeps the reusable pieces easy to test independently while leaving dataset-specific paths outside the public repository.
 
 ## Modules
 
@@ -69,7 +95,8 @@ src/modules/visual_semantic_localization/config/visual_semantic_localization.yam
 Then run:
 
 ```bash
-./build/run/visual_semantic_localization/visual_semantic_localization_main   src/modules/visual_semantic_localization/config/visual_semantic_localization.yaml
+./build/run/visual_semantic_localization/visual_semantic_localization_main \
+  src/modules/visual_semantic_localization/config/visual_semantic_localization.yaml
 ```
 
 The expected dataset layout is:
@@ -100,6 +127,10 @@ API credits would be useful for:
 - improving release notes and reproducibility checklists.
 
 Codex Security would be useful for reviewing public release hygiene: generated artifacts, machine-specific paths, dataset boundaries, dependency updates and scripts that process user-provided files.
+
+## Roadmap
+
+See [docs/ROADMAP.md](docs/ROADMAP.md) for the public maintenance plan.
 
 ## License
 
